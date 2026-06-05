@@ -62,3 +62,73 @@ class QNetwork(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         return self.head(x)
+
+
+class DQNAgent:
+    def __init__(self, seed: int = 0, lr: float = 1e-3, gamma: float = 0.99,
+                 batch_size: int = 64, buffer_capacity: int = 100_000,
+                 device: str | torch.device = "cpu",
+                 grad_clip: float = 10.0):
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+
+        self.device = torch.device(device)
+        self.gamma = gamma
+        self.batch_size = batch_size
+        self.grad_clip = grad_clip
+        self.epsilon = 1.0
+
+        self.online_net = QNetwork().to(self.device)
+        self.target_net = QNetwork().to(self.device)
+        self.target_net.load_state_dict(self.online_net.state_dict())
+        for p in self.target_net.parameters():
+            p.requires_grad = False
+
+        self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=lr)
+        self.buffer = ReplayBuffer(capacity=buffer_capacity, device=self.device)
+        self._rng = random.Random(seed)
+
+    def act(self, obs: np.ndarray, eval_mode: bool = False) -> int:
+        if not eval_mode and self._rng.random() < self.epsilon:
+            return self._rng.randint(0, N_ACTIONS - 1)
+        with torch.no_grad():
+            x = torch.from_numpy(
+                np.asarray(obs, dtype=np.float32)
+            ).unsqueeze(0).to(self.device)
+            q = self.online_net(x)
+            return int(q.argmax(dim=1).item())
+
+    def remember(self, s, a, r, ns, d) -> None:
+        self.buffer.push(s, a, r, ns, d)
+
+    def learn_step(self) -> float | None:
+        if len(self.buffer) < self.batch_size:
+            return None
+        s, a, r, ns, d = self.buffer.sample(self.batch_size)
+        q_sa = self.online_net(s).gather(1, a.unsqueeze(1)).squeeze(1)
+        with torch.no_grad():
+            q_next = self.target_net(ns).max(dim=1).values
+            target = r + self.gamma * q_next * (1.0 - d)
+        loss = F.mse_loss(q_sa, target)
+        self.optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.online_net.parameters(), self.grad_clip)
+        self.optimizer.step()
+        return float(loss.item())
+
+    def sync_target(self) -> None:
+        self.target_net.load_state_dict(self.online_net.state_dict())
+
+    def save(self, path: str) -> None:
+        torch.save({
+            "online": self.online_net.state_dict(),
+            "target": self.target_net.state_dict(),
+            "epsilon": self.epsilon,
+        }, path)
+
+    def load(self, path: str) -> None:
+        ckpt = torch.load(path, map_location=self.device)
+        self.online_net.load_state_dict(ckpt["online"])
+        self.target_net.load_state_dict(ckpt["target"])
+        self.epsilon = float(ckpt.get("epsilon", 0.0))
