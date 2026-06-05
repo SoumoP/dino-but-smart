@@ -70,6 +70,12 @@ class DinoEnv:
         for obs in self.obstacles:
             obs["x"] -= self.speed
 
+        bonus = 0.0
+        for o in self.obstacles:
+            if not o["cleared"] and (o["x"] + o["w"]) < DINO_X:
+                o["cleared"] = True
+                bonus += REWARD_CLEAR
+
         self.obstacles = [o for o in self.obstacles if o["x"] + o["w"] > 0]
 
         self._maybe_spawn()
@@ -77,7 +83,12 @@ class DinoEnv:
         self.speed = min(MAX_SPEED, self.speed + SPEED_ACCEL)
         self.steps += 1
 
-        reward = REWARD_STEP
+        if self._check_collision():
+            self.done = True
+            reward = REWARD_DEATH
+        else:
+            reward = REWARD_STEP + bonus
+
         obs = self._build_observation()
         return obs, reward, self.done, {"score": self.steps}
 
@@ -108,12 +119,31 @@ class DinoEnv:
         h = DINO_DUCK_H if self.is_ducking else DINO_H
         return (DINO_X, self.dino_y - h, DINO_W, float(h))
 
+    def _next_obstacle(self) -> dict | None:
+        for o in self.obstacles:
+            if o["x"] + o["w"] > DINO_X:
+                return o
+        return None
+
+    def _check_collision(self) -> bool:
+        dx, dy, dw, dh = self.dino_hitbox
+        for o in self.obstacles:
+            ox, oy, ow, oh = o["x"], o["y"], o["w"], o["h"]
+            if dx < ox + ow and dx + dw > ox and dy < oy + oh and dy + dh > oy:
+                return True
+        return False
+
     def _build_observation(self) -> np.ndarray:
+        nxt = self._next_obstacle()
+        if nxt is None:
+            dist, w, h, y = 1.0, 0.0, 0.0, 0.0
+        else:
+            dist = max(0.0, (nxt["x"] - DINO_X)) / SCREEN_W
+            w = nxt["w"] / SCREEN_W
+            h = nxt["h"] / SCREEN_H
+            y = nxt["y"] / SCREEN_H
         return np.array([
-            1.0,
-            0.0,
-            0.0,
-            0.0,
+            dist, w, h, y,
             self.dino_y / SCREEN_H,
             self.dino_vy / MAX_VY,
             self.speed / MAX_SPEED,

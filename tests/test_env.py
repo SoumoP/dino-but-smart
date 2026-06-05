@@ -85,7 +85,64 @@ def test_determinism_same_seed_same_first_spawn():
     env_a.reset()
     env_b.reset()
     for _ in range(500):
+        if env_a.done or env_b.done:
+            break
         env_a.step(ACTION_NOOP)
         env_b.step(ACTION_NOOP)
+    assert env_a.done == env_b.done
+    assert env_a.steps == env_b.steps
     assert [o["x"] for o in env_a.obstacles] == [o["x"] for o in env_b.obstacles]
     env_a.close(); env_b.close()
+
+
+def test_collision_terminates_with_negative_reward():
+    env = DinoEnv(render=False, seed=0)
+    env.reset()
+    env.obstacles = [{
+        "x": float(50), "y": float(GROUND_Y - 30), "w": 30.0, "h": 30.0,
+        "kind": "cactus_small", "cleared": False,
+    }]
+    obs, reward, done, info = env.step(ACTION_NOOP)
+    assert done is True
+    assert reward < 0, f"expected negative reward on death, got {reward}"
+    env.close()
+
+
+def test_clearing_obstacle_gives_bonus():
+    env = DinoEnv(render=False, seed=0)
+    env.reset()
+    env.obstacles = [{
+        "x": float(10), "y": float(GROUND_Y - 30), "w": 5.0, "h": 30.0,
+        "kind": "cactus_small", "cleared": False,
+    }]
+    env.dino_y = float(GROUND_Y - 200)
+    _, reward, done, _ = env.step(ACTION_NOOP)
+    assert not done
+    assert reward > 0.5, f"expected clear bonus, got {reward}"
+    env.close()
+
+
+def test_observation_components_in_unit_range():
+    env = DinoEnv(render=False, seed=1)
+    env.reset()
+    for _ in range(500):
+        obs, _, done, _ = env.step(env._rng.choice([ACTION_NOOP, ACTION_JUMP]))
+        assert obs.shape == (OBS_DIM,)
+        # vy may go down to JUMP_V / MAX_VY = -0.8
+        assert (obs >= -1.0).all() and (obs <= 1.5).all(), f"obs out of range: {obs}"
+        if done:
+            break
+    env.close()
+
+
+def test_observation_first_components_describe_next_obstacle():
+    env = DinoEnv(render=False, seed=0)
+    env.reset()
+    env.obstacles = [{
+        "x": float(400), "y": float(GROUND_Y - 30), "w": 20.0, "h": 30.0,
+        "kind": "cactus_small", "cleared": False,
+    }]
+    obs = env._build_observation()
+    assert abs(obs[0] - 0.4375) < 1e-4
+    assert abs(obs[1] - 20.0 / 800) < 1e-4
+    env.close()
