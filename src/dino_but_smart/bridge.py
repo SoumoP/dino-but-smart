@@ -67,6 +67,14 @@ class ChromeDinoBridge:
                 return
         raise RuntimeError("could not start the dino game (Runner not ready)")
 
+    def send_action(self, action: int) -> None:
+        if action == ACTION_JUMP:
+            ActionChains(self.driver).send_keys(Keys.SPACE).perform()
+        elif action == ACTION_DUCK:
+            ActionChains(self.driver).key_down(Keys.ARROW_DOWN).perform()
+            ActionChains(self.driver).key_up(Keys.ARROW_DOWN).perform()
+        # ACTION_NOOP: do nothing
+
     def get_observation(self) -> np.ndarray:
         state = self._pull_state()
         if state is None:
