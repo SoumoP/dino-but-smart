@@ -1,2 +1,17 @@
 docs/
 .idea/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# project artefacts
+checkpoints/
+logs/
+
+# venv
+.venv/
+venv/
