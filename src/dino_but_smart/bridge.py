@@ -67,6 +67,44 @@ class ChromeDinoBridge:
                 return
         raise RuntimeError("could not start the dino game (Runner not ready)")
 
+    def get_observation(self) -> np.ndarray:
+        state = self._pull_state()
+        if state is None:
+            return np.zeros(OBS_DIM, dtype=np.float32)
+        return self._state_to_obs(state)
+
+    def is_crashed(self) -> bool:
+        state = self._pull_state()
+        return bool(state and state["crashed"])
+
+    def get_score(self) -> int:
+        state = self._pull_state()
+        if not state:
+            return 0
+        # Chrome Dino: displayed score ~ distanceRan * 0.025
+        return int(state["distanceRan"] * 0.025)
+
+    def _state_to_obs(self, state: dict) -> np.ndarray:
+        obstacles = state.get("obstacles", [])
+        nxt = None
+        for o in obstacles:
+            if o["x"] + o["w"] > DINO_X:
+                nxt = o
+                break
+        if nxt is None:
+            dist, w, h, y = 1.0, 0.0, 0.0, 0.0
+        else:
+            dist = max(0.0, (nxt["x"] - DINO_X)) / SCREEN_W
+            w = nxt["w"] / SCREEN_W
+            h = nxt["h"] / SCREEN_H
+            y = nxt["y"] / SCREEN_H
+
+        dino_y = max(0.0, min(SCREEN_H, state["tRexY"])) / SCREEN_H
+        dino_vy = max(-MAX_VY, min(MAX_VY, state["tRexJumpVy"])) / MAX_VY
+        speed = min(MAX_SPEED, state["speed"]) / MAX_SPEED
+
+        return np.array([dist, w, h, y, dino_y, dino_vy, speed], dtype=np.float32)
+
     def close(self) -> None:
         try:
             self.driver.quit()
