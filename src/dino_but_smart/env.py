@@ -14,6 +14,19 @@ from .constants import (
     V0_SPEED,
 )
 
+# Obstacle catalogue. y_top is the y-coordinate of the obstacle's top.
+OBSTACLE_TYPES = [
+    {"w": 17, "h": 35, "y_top": GROUND_Y - 35, "kind": "cactus_small"},
+    {"w": 25, "h": 50, "y_top": GROUND_Y - 50, "kind": "cactus_large"},
+    {"w": 51, "h": 35, "y_top": GROUND_Y - 35, "kind": "cactus_cluster"},
+    {"w": 46, "h": 40, "y_top": GROUND_Y - 40, "kind": "bird_low"},
+    {"w": 46, "h": 40, "y_top": GROUND_Y - 75, "kind": "bird_mid"},
+    {"w": 46, "h": 40, "y_top": GROUND_Y - 110, "kind": "bird_high"},
+]
+
+MIN_GAP_PX = 200
+MAX_GAP_PX = 500
+
 
 class DinoEnv:
     def __init__(self, render: bool = False, seed: int = 0):
@@ -28,8 +41,9 @@ class DinoEnv:
         self.is_ducking = False
         self.speed = V0_SPEED
         self.steps = 0
-        self.obstacles: list[dict] = []   # populated in Task 4
+        self.obstacles: list[dict] = []
         self.done = False
+        self._next_gap = float(self._rng.randint(MIN_GAP_PX, MAX_GAP_PX))
         return self._build_observation()
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, dict]:
@@ -53,12 +67,37 @@ class DinoEnv:
             self.dino_y = float(GROUND_Y)
             self.dino_vy = 0.0
 
+        for obs in self.obstacles:
+            obs["x"] -= self.speed
+
+        self.obstacles = [o for o in self.obstacles if o["x"] + o["w"] > 0]
+
+        self._maybe_spawn()
+
         self.speed = min(MAX_SPEED, self.speed + SPEED_ACCEL)
         self.steps += 1
 
         reward = REWARD_STEP
         obs = self._build_observation()
         return obs, reward, self.done, {"score": self.steps}
+
+    def _maybe_spawn(self) -> None:
+        rightmost_x = max(
+            (o["x"] + o["w"] for o in self.obstacles), default=-MAX_GAP_PX,
+        )
+        gap = SCREEN_W - rightmost_x
+        if gap < self._next_gap:
+            return
+        proto = self._rng.choice(OBSTACLE_TYPES)
+        self.obstacles.append({
+            "x": float(SCREEN_W),
+            "y": float(proto["y_top"]),
+            "w": float(proto["w"]),
+            "h": float(proto["h"]),
+            "kind": proto["kind"],
+            "cleared": False,
+        })
+        self._next_gap = float(self._rng.randint(MIN_GAP_PX, MAX_GAP_PX))
 
     def close(self) -> None:
         pass
