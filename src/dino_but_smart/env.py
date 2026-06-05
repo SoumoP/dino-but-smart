@@ -3,9 +3,11 @@ physics and game logic. Obstacles are added in Task 4."""
 
 from __future__ import annotations
 
+import os
 import random
 
 import numpy as np
+import pygame
 
 from .constants import (
     ACTION_DUCK, ACTION_JUMP, ACTION_NOOP, DINO_DUCK_H, DINO_H, DINO_W, DINO_X,
@@ -32,8 +34,15 @@ class DinoEnv:
     def __init__(self, render: bool = False, seed: int = 0):
         self.render_mode = render
         self._rng = random.Random(seed)
-        self._initialised_pygame = False  # rendering wired in Task 6
+        self._initialised_pygame = False
         self.reset()
+        if self.render_mode:
+            os.environ.setdefault("SDL_VIDEO_CENTERED", "1")
+            pygame.init()
+            self.screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
+            pygame.display.set_caption("dino-but-smart")
+            self.clock = pygame.time.Clock()
+            self._initialised_pygame = True
 
     def reset(self) -> np.ndarray:
         self.dino_y = float(GROUND_Y)
@@ -90,6 +99,8 @@ class DinoEnv:
             reward = REWARD_STEP + bonus
 
         obs = self._build_observation()
+        if self.render_mode:
+            self.render_frame()
         return obs, reward, self.done, {"score": self.steps}
 
     def _maybe_spawn(self) -> None:
@@ -111,7 +122,37 @@ class DinoEnv:
         self._next_gap = float(self._rng.randint(MIN_GAP_PX, MAX_GAP_PX))
 
     def close(self) -> None:
-        pass
+        if self._initialised_pygame:
+            pygame.quit()
+            self._initialised_pygame = False
+
+    def render_frame(self) -> None:
+        if not self.render_mode:
+            return
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.close()
+                raise SystemExit
+
+        self.screen.fill((247, 247, 247))
+        pygame.draw.line(self.screen, (83, 83, 83),
+                         (0, GROUND_Y), (SCREEN_W, GROUND_Y), 2)
+
+        dx, dy, dw, dh = self.dino_hitbox
+        pygame.draw.rect(self.screen, (50, 50, 50),
+                         pygame.Rect(dx, dy, dw, dh))
+
+        for o in self.obstacles:
+            colour = (60, 120, 60) if o["kind"].startswith("cactus") else (120, 60, 60)
+            pygame.draw.rect(self.screen, colour,
+                             pygame.Rect(o["x"], o["y"], o["w"], o["h"]))
+
+        font = pygame.font.SysFont(None, 22)
+        score_surf = font.render(f"score: {self.steps}", True, (83, 83, 83))
+        self.screen.blit(score_surf, (SCREEN_W - 120, 10))
+
+        pygame.display.flip()
+        self.clock.tick(60)
 
     @property
     def dino_hitbox(self) -> tuple[float, float, float, float]:
