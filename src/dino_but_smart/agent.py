@@ -48,3 +48,17 @@ class ReplayBuffer:
 
     def __len__(self) -> int:
         return self._size
+
+
+class QNetwork(nn.Module):
+    def __init__(self, obs_dim: int = OBS_DIM, n_actions: int = N_ACTIONS,
+                 hidden: int = 128):
+        super().__init__()
+        self.fc1 = nn.Linear(obs_dim, hidden)
+        self.fc2 = nn.Linear(hidden, hidden)
+        self.head = nn.Linear(hidden, n_actions)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.head(x)

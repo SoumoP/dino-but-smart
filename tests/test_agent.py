@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-from dino_but_smart.agent import ReplayBuffer
-from dino_but_smart.constants import OBS_DIM
+from dino_but_smart.agent import QNetwork, ReplayBuffer
+from dino_but_smart.constants import N_ACTIONS, OBS_DIM
 
 
 def test_buffer_len_grows_until_capacity():
@@ -32,3 +32,18 @@ def test_buffer_sample_shapes_and_dtypes():
     assert a.dtype == torch.long
     assert r.dtype == torch.float32
     assert d.dtype == torch.float32
+
+
+def test_qnet_forward_returns_batch_q_values():
+    net = QNetwork()
+    x = torch.zeros((4, OBS_DIM))
+    out = net(x)
+    assert out.shape == (4, N_ACTIONS)
+
+
+def test_qnet_eval_is_deterministic_for_same_input():
+    net = QNetwork().eval()
+    x = torch.randn((2, OBS_DIM))
+    out1 = net(x)
+    out2 = net(x)
+    assert torch.allclose(out1, out2)
