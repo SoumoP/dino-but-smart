@@ -17,17 +17,20 @@ from .constants import (
 )
 
 # Obstacle catalogue. y_top is the y-coordinate of the obstacle's top.
+# Cactus widths/heights and bird y_top values mirror Chrome's offline-Dino:
+# CACTUS_SMALL y=105, CACTUS_LARGE y=90, PTERODACTYL y in {100, 75, 50}.
 OBSTACLE_TYPES = [
-    {"w": 17, "h": 35, "y_top": GROUND_Y - 35, "kind": "cactus_small"},
-    {"w": 25, "h": 50, "y_top": GROUND_Y - 50, "kind": "cactus_large"},
-    {"w": 51, "h": 35, "y_top": GROUND_Y - 35, "kind": "cactus_cluster"},
-    {"w": 46, "h": 40, "y_top": GROUND_Y - 40, "kind": "bird_low"},
-    {"w": 46, "h": 40, "y_top": GROUND_Y - 75, "kind": "bird_mid"},
-    {"w": 46, "h": 40, "y_top": GROUND_Y - 110, "kind": "bird_high"},
+    {"w": 17, "h": 35, "y_top": GROUND_Y - 35, "kind": "cactus_small"},   # y_top=105
+    {"w": 25, "h": 50, "y_top": GROUND_Y - 50, "kind": "cactus_large"},   # y_top=90
+    {"w": 51, "h": 35, "y_top": GROUND_Y - 35, "kind": "cactus_cluster"}, # y_top=105
+    {"w": 46, "h": 40, "y_top": GROUND_Y - 40, "kind": "bird_low"},       # y_top=100
+    {"w": 46, "h": 40, "y_top": GROUND_Y - 65, "kind": "bird_mid"},       # y_top=75
+    {"w": 46, "h": 40, "y_top": GROUND_Y - 90, "kind": "bird_high"},      # y_top=50
 ]
 
-MIN_GAP_PX = 200
-MAX_GAP_PX = 500
+# Pixel gaps between consecutive obstacles, scaled to 600-wide Chrome canvas.
+MIN_GAP_PX = 150
+MAX_GAP_PX = 350
 
 
 class DinoEnv:

@@ -3,7 +3,8 @@ import pytest
 
 from dino_but_smart.env import DinoEnv
 from dino_but_smart.constants import (
-    ACTION_NOOP, ACTION_JUMP, ACTION_DUCK, OBS_DIM, GROUND_Y,
+    ACTION_NOOP, ACTION_JUMP, ACTION_DUCK, DINO_X, OBS_DIM, GROUND_Y,
+    SCREEN_H, SCREEN_W,
 )
 
 
@@ -138,11 +139,21 @@ def test_observation_components_in_unit_range():
 def test_observation_first_components_describe_next_obstacle():
     env = DinoEnv(render=False, seed=0)
     env.reset()
+    obs_x = float(SCREEN_W // 2)   # place obstacle mid-canvas
+    obs_w = 20.0
+    obs_h = 30.0
+    obs_y = float(GROUND_Y - obs_h)
     env.obstacles = [{
-        "x": float(400), "y": float(GROUND_Y - 30), "w": 20.0, "h": 30.0,
+        "x": obs_x, "y": obs_y, "w": obs_w, "h": obs_h,
         "kind": "cactus_small", "cleared": False,
     }]
     obs = env._build_observation()
-    assert abs(obs[0] - 0.4375) < 1e-4
-    assert abs(obs[1] - 20.0 / 800) < 1e-4
+    expected_dist = (obs_x - DINO_X) / SCREEN_W
+    expected_w = obs_w / SCREEN_W
+    expected_h = obs_h / SCREEN_H
+    expected_y = obs_y / SCREEN_H
+    assert abs(obs[0] - expected_dist) < 1e-4
+    assert abs(obs[1] - expected_w) < 1e-4
+    assert abs(obs[2] - expected_h) < 1e-4
+    assert abs(obs[3] - expected_y) < 1e-4
     env.close()
