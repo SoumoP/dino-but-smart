@@ -24,12 +24,14 @@ from .constants import (
 
 
 JS_PULL_GEOMETRY = """
-const c = document.querySelector('canvas');
 const r = window.Runner && window.Runner.instance_;
-if (!c || !r || !r.tRex) return null;
+if (!r || !r.tRex || !r.dimensions) return null;
+// r.dimensions is the LOGICAL game coordinate space (e.g. 600x150).
+// The <canvas> element itself may be 2x larger for HiDPI; we want the
+// logical dims because all obstacle/dino x,y are in logical coords.
 return {
-  canvas_w: c.width,
-  canvas_h: c.height,
+  canvas_w: r.dimensions.WIDTH,
+  canvas_h: r.dimensions.HEIGHT,
   ground_y: r.tRex.groundYPos,
   dino_x: r.tRex.xPos
 };
