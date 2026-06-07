@@ -45,12 +45,18 @@ class ChromeEnv:
         return self.bridge.get_observation()
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, dict]:
-        self.bridge.send_action(action)
-        time.sleep(self.step_dt)
-        state = self.bridge._pull_state()
+        try:
+            self.bridge.send_action(action)
+            time.sleep(self.step_dt)
+            state = self.bridge._pull_state()
+        except Exception as e:
+            # Any Selenium failure during a step ends the episode and surfaces
+            # the error so the training loop can decide whether to recreate
+            # the env (session-dead) or just continue (transient).
+            return (np.zeros(OBS_DIM, dtype=np.float32), 0.0, True,
+                    {"error": str(e).splitlines()[0]})
+
         if state is None:
-            # Page/driver lost — terminate without reward so the training
-            # loop can attempt to recover via reset().
             return (np.zeros(OBS_DIM, dtype=np.float32), 0.0, True,
                     {"error": "no_state"})
 

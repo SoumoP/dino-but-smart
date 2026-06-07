@@ -51,13 +51,41 @@ def main() -> None:
     Path(args.log_dir).mkdir(parents=True, exist_ok=True)
     log_path = Path(args.log_dir) / f"chrome-finetune-{int(time.time())}.csv"
 
-    env = ChromeEnv(url=args.url, step_hz=args.step_hz, headless=False)
+    def make_env() -> ChromeEnv:
+        return ChromeEnv(url=args.url, step_hz=args.step_hz, headless=False)
+
+    env = make_env()
     agent = DQNAgent(seed=0, lr=args.lr,
                      batch_size=args.batch_size,
                      buffer_capacity=args.buffer_capacity)
     agent.load(args.resume_from)
     agent.epsilon = args.eps_start
     print(f"loaded {args.resume_from}; starting eps={agent.epsilon}, lr={args.lr}")
+
+    SESSION_DEAD_MARKERS = (
+        "no such window", "session deleted", "invalid session id",
+        "chrome not reachable", "disconnected", "target closed",
+        "session not created", "tab crashed",
+    )
+
+    def is_session_dead(err_msg: str) -> bool:
+        m = err_msg.lower()
+        return any(s in m for s in SESSION_DEAD_MARKERS)
+
+    def recreate_env(current: ChromeEnv) -> ChromeEnv:
+        try:
+            current.close()
+        except Exception:
+            pass
+        for attempt in range(5):
+            try:
+                fresh = make_env()
+                print(f"[recovery] new browser session ready (attempt {attempt+1})")
+                return fresh
+            except Exception as e:
+                print(f"[recovery] make_env failed ({e}); retrying in 10s")
+                time.sleep(10)
+        raise RuntimeError("could not recreate env after 5 attempts")
 
     global_step = 0
     best_ep_reward = -float("inf")
@@ -78,7 +106,12 @@ def main() -> None:
                 try:
                     obs = env.reset()
                 except Exception as e:
-                    print(f"reset failed: {e}; retrying in 5s")
+                    msg = str(e).splitlines()[0]
+                    if is_session_dead(msg):
+                        print(f"[recovery] reset hit dead session: {msg}")
+                        env = recreate_env(env)
+                        continue
+                    print(f"reset failed: {msg}; retrying in 5s")
                     time.sleep(5)
                     continue
 
@@ -87,6 +120,7 @@ def main() -> None:
                 ep_reward = 0.0
                 final_score = 0
                 losses: list[float] = []
+                ep_error = None
 
                 while not done and time.time() < deadline:
                     agent.epsilon = anneal(global_step, args.eps_start,
@@ -100,6 +134,8 @@ def main() -> None:
                     global_step += 1
                     if "score" in info:
                         final_score = info["score"]
+                    if "error" in info:
+                        ep_error = info["error"]
 
                     if (global_step > args.warmup
                             and global_step % args.learn_every == 0):
@@ -108,6 +144,13 @@ def main() -> None:
                             losses.append(loss)
                     if global_step % args.target_sync == 0:
                         agent.sync_target()
+
+                # If the episode ended due to a dead session, swap in a fresh
+                # browser before the next reset() instead of repeatedly poking
+                # the corpse.
+                if ep_error and is_session_dead(ep_error):
+                    print(f"[recovery] episode ended with dead session: {ep_error}")
+                    env = recreate_env(env)
 
                 mean_loss = sum(losses) / len(losses) if losses else 0.0
                 elapsed = time.time() - t0
