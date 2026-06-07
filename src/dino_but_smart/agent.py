@@ -108,11 +108,7 @@ class DQNAgent:
         s, a, r, ns, d = self.buffer.sample(self.batch_size)
         q_sa = self.online_net(s).gather(1, a.unsqueeze(1)).squeeze(1)
         with torch.no_grad():
-            # Double DQN: online net picks the next action, target net values it.
-            # Splits the "lucky-on-this-draw" noise away from the value estimate,
-            # killing vanilla DQN's overestimation bias.
-            next_actions = self.online_net(ns).argmax(dim=1, keepdim=True)
-            q_next = self.target_net(ns).gather(1, next_actions).squeeze(1)
+            q_next = self.target_net(ns).max(dim=1).values
             target = r + self.gamma * q_next * (1.0 - d)
         loss = F.mse_loss(q_sa, target)
         self.optimizer.zero_grad()
