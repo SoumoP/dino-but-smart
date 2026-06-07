@@ -18,8 +18,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
 from .constants import (
-    ACTION_DUCK, ACTION_JUMP, ACTION_NOOP, DINO_X, GROUND_Y, MAX_SPEED, MAX_VY,
-    OBS_DIM, SCREEN_H, SCREEN_W,
+    ACTION_DUCK, ACTION_JUMP, ACTION_NOOP, DINO_H, DINO_X, GROUND_Y, MAX_SPEED,
+    MAX_VY, OBS_DIM, SCREEN_H, SCREEN_W,
 )
 
 
@@ -86,22 +86,15 @@ class ChromeDinoBridge:
         raise RuntimeError("could not start the dino game (Runner not ready)")
 
     def _query_geometry(self) -> None:
-        """Read Chrome's canvas + dino geometry once so observations can be
-        projected into the clone's coordinate system."""
+        """Read Chrome's logical canvas + dino geometry once."""
         geom = self.driver.execute_script(JS_PULL_GEOMETRY)
         if not geom:
             return
-        # effective_h: chosen so that tRexY-when-grounded normalises to the same
-        # fraction the agent saw in training (GROUND_Y / SCREEN_H).
-        effective_h = geom["ground_y"] * SCREEN_H / GROUND_Y
         self._chrome_geom = {
             "canvas_w": geom["canvas_w"],
             "canvas_h": geom["canvas_h"],
             "ground_y": geom["ground_y"],
             "dino_x": geom["dino_x"],
-            "effective_w": geom["canvas_w"],
-            "effective_h": effective_h,
-            "x_scale_to_clone": SCREEN_W / geom["canvas_w"],
         }
 
     def send_action(self, action: int) -> None:
@@ -135,16 +128,12 @@ class ChromeDinoBridge:
         g = self._chrome_geom
 
         if g is None:
-            # Geometry probe failed; fall back to clone constants. Agent will
-            # likely behave poorly because observations are out of distribution.
-            eff_w, eff_h = float(SCREEN_W), float(SCREEN_H)
+            cw, ch = float(SCREEN_W), float(SCREEN_H)
             chrome_dino_x = float(DINO_X)
-            x_scale = 1.0
         else:
-            eff_w = g["effective_w"]
-            eff_h = g["effective_h"]
-            chrome_dino_x = g["dino_x"]
-            x_scale = g["x_scale_to_clone"]
+            cw = float(g["canvas_w"])
+            ch = float(g["canvas_h"])
+            chrome_dino_x = float(g["dino_x"])
 
         obstacles = state.get("obstacles", [])
         nxt = None
@@ -155,18 +144,18 @@ class ChromeDinoBridge:
         if nxt is None:
             dist, w, h, y = 1.0, 0.0, 0.0, 0.0
         else:
-            dist = max(0.0, (nxt["x"] - chrome_dino_x)) / eff_w
-            w = nxt["w"] / eff_w
-            h = nxt["h"] / eff_h
-            y = nxt["y"] / eff_h
+            dist = max(0.0, (nxt["x"] - chrome_dino_x)) / cw
+            w = nxt["w"] / cw
+            h = nxt["h"] / ch
+            y = nxt["y"] / ch  # Chrome & clone both use top-of-obstacle here
 
-        dino_y = max(0.0, state["tRexY"]) / eff_h
+        # Chrome's tRex.yPos is the TOP of the dino; clone's dino_y is the
+        # BOTTOM. Convert top -> bottom by adding DINO_H so the agent sees the
+        # same number it trained on when the dino is grounded.
+        dino_y_bottom = state["tRexY"] + DINO_H
+        dino_y = max(0.0, dino_y_bottom) / ch
         dino_vy = max(-MAX_VY, min(MAX_VY, state["tRexJumpVy"])) / MAX_VY
-        # Scale speed so the agent sees the same fraction of canvas/frame it
-        # learned on (otherwise a smaller canvas makes obstacles arrive sooner
-        # than the agent's reaction-time policy expects).
-        speed_in_clone_units = state["speed"] * x_scale
-        speed = min(MAX_SPEED, speed_in_clone_units) / MAX_SPEED
+        speed = min(MAX_SPEED, state["speed"]) / MAX_SPEED
 
         return np.array([dist, w, h, y, dino_y, dino_vy, speed], dtype=np.float32)
 
