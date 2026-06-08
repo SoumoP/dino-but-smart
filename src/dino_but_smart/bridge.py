@@ -162,8 +162,8 @@ class ChromeDinoBridge:
     def close(self) -> None:
         try:
             self.driver.quit()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[bridge] driver.quit failed: {e}")
 
     def _pull_state(self) -> dict | None:
         return self.driver.execute_script(JS_PULL_STATE)
