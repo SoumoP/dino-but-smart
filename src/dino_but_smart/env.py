@@ -79,8 +79,8 @@ class DinoEnv:
             self.dino_y = float(GROUND_Y)
             self.dino_vy = 0.0
 
-        for obs in self.obstacles:
-            obs["x"] -= self.speed
+        for o in self.obstacles:
+            o["x"] -= self.speed
 
         bonus = 0.0
         for o in self.obstacles:
