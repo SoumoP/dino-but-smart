@@ -48,7 +48,7 @@ class ChromeEnv:
         try:
             self.bridge.send_action(action)
             time.sleep(self.step_dt)
-            state = self.bridge._pull_state()
+            state = self.bridge.pull_state()
         except Exception as e:
             # Any Selenium failure during a step ends the episode and surfaces
             # the error so the training loop can decide whether to recreate
@@ -64,7 +64,7 @@ class ChromeEnv:
             return (np.zeros(OBS_DIM, dtype=np.float32), REWARD_DEATH, True,
                     {"score": int(state["distanceRan"] * CHROME_SCORE_PER_DISTANCE)})
 
-        obs = self.bridge._state_to_obs(state)
+        obs = self.bridge.state_to_obs(state)
         return obs, REWARD_STEP, False, {
             "score": int(state["distanceRan"] * CHROME_SCORE_PER_DISTANCE),
         }

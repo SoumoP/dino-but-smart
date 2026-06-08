@@ -79,7 +79,7 @@ class ChromeDinoBridge:
         ActionChains(self.driver).send_keys(Keys.SPACE).perform()
         for _ in range(50):
             time.sleep(0.1)
-            state = self._pull_state()
+            state = self.pull_state()
             if state is not None and not state["crashed"]:
                 self._query_geometry()
                 return
@@ -106,22 +106,22 @@ class ChromeDinoBridge:
         # ACTION_NOOP: do nothing
 
     def get_observation(self) -> np.ndarray:
-        state = self._pull_state()
+        state = self.pull_state()
         if state is None:
             return np.zeros(OBS_DIM, dtype=np.float32)
-        return self._state_to_obs(state)
+        return self.state_to_obs(state)
 
     def is_crashed(self) -> bool:
-        state = self._pull_state()
+        state = self.pull_state()
         return bool(state and state["crashed"])
 
     def get_score(self) -> int:
-        state = self._pull_state()
+        state = self.pull_state()
         if not state:
             return 0
         return int(state["distanceRan"] * CHROME_SCORE_PER_DISTANCE)
 
-    def _state_to_obs(self, state: dict) -> np.ndarray:
+    def state_to_obs(self, state: dict) -> np.ndarray:
         if self._chrome_geom is None:
             self._query_geometry()
         g = self._chrome_geom
@@ -164,5 +164,5 @@ class ChromeDinoBridge:
         except Exception as e:
             print(f"[bridge] driver.quit failed: {e}")
 
-    def _pull_state(self) -> dict | None:
+    def pull_state(self) -> dict | None:
         return self.driver.execute_script(JS_PULL_STATE)
