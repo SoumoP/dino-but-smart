@@ -77,15 +77,17 @@ def main() -> None:
             current.close()
         except Exception as e:
             print(f"[recovery] current.close failed: {e}")
+        last_err: Exception | None = None
         for attempt in range(5):
             try:
                 fresh = make_env()
                 print(f"[recovery] new browser session ready (attempt {attempt+1})")
                 return fresh
             except Exception as e:
+                last_err = e
                 print(f"[recovery] make_env failed ({e}); retrying in 10s")
                 time.sleep(10)
-        raise RuntimeError("could not recreate env after 5 attempts")
+        raise RuntimeError("could not recreate env after 5 attempts") from last_err
 
     global_step = 0
     best_ep_reward = -float("inf")
