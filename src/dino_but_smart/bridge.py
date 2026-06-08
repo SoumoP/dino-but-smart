@@ -18,8 +18,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
 from .constants import (
-    ACTION_DUCK, ACTION_JUMP, DINO_H, DINO_X, MAX_SPEED, MAX_VY, OBS_DIM,
-    SCREEN_H, SCREEN_W,
+    ACTION_DUCK, ACTION_JUMP, CHROME_SCORE_PER_DISTANCE, DINO_H, DINO_X,
+    MAX_SPEED, MAX_VY, OBS_DIM, SCREEN_H, SCREEN_W,
 )
 
 
@@ -119,8 +119,7 @@ class ChromeDinoBridge:
         state = self._pull_state()
         if not state:
             return 0
-        # Chrome Dino: displayed score ~ distanceRan * 0.025
-        return int(state["distanceRan"] * 0.025)
+        return int(state["distanceRan"] * CHROME_SCORE_PER_DISTANCE)
 
     def _state_to_obs(self, state: dict) -> np.ndarray:
         if self._chrome_geom is None:

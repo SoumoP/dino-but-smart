@@ -36,3 +36,6 @@ OBS_DIM = 7
 REWARD_STEP = 0.1
 REWARD_CLEAR = 1.0
 REWARD_DEATH = -10.0
+
+# Chrome Dino displayed score = distanceRan * this factor
+CHROME_SCORE_PER_DISTANCE = 0.025
