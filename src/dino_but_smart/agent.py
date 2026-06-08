@@ -128,7 +128,7 @@ class DQNAgent:
         }, path)
 
     def load(self, path: str) -> None:
-        ckpt = torch.load(path, map_location=self.device)
+        ckpt = torch.load(path, map_location=self.device, weights_only=True)
         self.online_net.load_state_dict(ckpt["online"])
         self.target_net.load_state_dict(ckpt["target"])
         self.epsilon = float(ckpt.get("epsilon", 0.0))
