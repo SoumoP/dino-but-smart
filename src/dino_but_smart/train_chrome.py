@@ -93,7 +93,7 @@ def main() -> None:
     t0 = time.time()
     deadline = t0 + args.duration_min * 60.0
 
-    with open(log_path, "w", newline="") as f:
+    with open(log_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
             "episode", "steps", "ep_reward", "game_score",

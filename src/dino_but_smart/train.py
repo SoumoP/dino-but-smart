@@ -53,7 +53,7 @@ def main() -> None:
     global_step = 0
     best_score = -float("inf")
 
-    with open(log_path, "w", newline="") as f:
+    with open(log_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["episode", "steps", "score", "epsilon", "mean_loss", "wall_time"])
 
