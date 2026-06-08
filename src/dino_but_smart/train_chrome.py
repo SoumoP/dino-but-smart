@@ -19,6 +19,10 @@ from pathlib import Path
 from .agent import DQNAgent
 from .chrome_env import ChromeEnv
 
+CHECKPOINT_BEST = "chrome-tuned-best.pt"
+CHECKPOINT_PERIODIC = "chrome-tuned-periodic.pt"
+CHECKPOINT_FINAL = "chrome-tuned-final.pt"
+
 
 def anneal(step: int, start: float, end: float, decay_steps: int) -> float:
     if step >= decay_steps:
@@ -168,11 +172,11 @@ def main() -> None:
                 if ep_reward > best_ep_reward:
                     best_ep_reward = ep_reward
                     agent.save(os.path.join(args.checkpoint_dir,
-                                            "chrome-tuned-best.pt"))
+                                            CHECKPOINT_BEST))
 
                 if time.time() - last_periodic_save > args.checkpoint_every_sec:
                     agent.save(os.path.join(args.checkpoint_dir,
-                                            "chrome-tuned-periodic.pt"))
+                                            CHECKPOINT_PERIODIC))
                     last_periodic_save = time.time()
 
                 ep += 1
@@ -182,11 +186,10 @@ def main() -> None:
             print("training crashed — saving and exiting")
             traceback.print_exc()
         finally:
-            agent.save(os.path.join(args.checkpoint_dir,
-                                    "chrome-tuned-final.pt"))
+            agent.save(os.path.join(args.checkpoint_dir, CHECKPOINT_FINAL))
             env.close()
             print(f"\ntotal episodes: {ep}, best ep reward: {best_ep_reward:.2f}")
-            print(f"saved chrome-tuned-best.pt and chrome-tuned-final.pt")
+            print(f"saved {CHECKPOINT_BEST} and {CHECKPOINT_FINAL}")
 
 
 if __name__ == "__main__":
