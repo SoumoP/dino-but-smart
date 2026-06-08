@@ -75,8 +75,8 @@ def main() -> None:
     def recreate_env(current: ChromeEnv) -> ChromeEnv:
         try:
             current.close()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[recovery] current.close failed: {e}")
         for attempt in range(5):
             try:
                 fresh = make_env()
