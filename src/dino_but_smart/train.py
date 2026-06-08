@@ -7,10 +7,25 @@ import argparse
 import csv
 import os
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .agent import DQNAgent
 from .env import DinoEnv
+
+CHECKPOINT_BEST = "best.pt"
+CHECKPOINT_FINAL = "final.pt"
+
+
+@dataclass
+class EpisodeResult:
+    steps: int = 0
+    score: float = 0.0
+    losses: list[float] = field(default_factory=list)
+
+    @property
+    def mean_loss(self) -> float:
+        return sum(self.losses) / len(self.losses) if self.losses else 0.0
 
 
 def anneal_epsilon(step: int, eps_start: float, eps_end: float,
@@ -21,7 +36,7 @@ def anneal_epsilon(step: int, eps_start: float, eps_end: float,
     return eps_start + (eps_end - eps_start) * frac
 
 
-def main() -> None:
+def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train DQN on Dino clone")
     parser.add_argument("--episodes", type=int, default=2000)
     parser.add_argument("--seed", type=int, default=0)
@@ -38,8 +53,39 @@ def main() -> None:
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--buffer-capacity", type=int, default=100_000)
-    args = parser.parse_args()
+    return parser.parse_args()
 
+
+def _run_episode(
+        env: DinoEnv, agent: DQNAgent,
+        args: argparse.Namespace, global_step: int,
+) -> tuple[EpisodeResult, int]:
+    obs = env.reset()
+    result = EpisodeResult()
+    done = False
+    while not done:
+        agent.epsilon = anneal_epsilon(
+            global_step, args.eps_start, args.eps_end, args.eps_decay,
+        )
+        action = agent.act(obs, eval_mode=False)
+        next_obs, reward, done, _ = env.step(action)
+        agent.remember(obs, action, reward, next_obs, done)
+        obs = next_obs
+        result.steps += 1
+        result.score += reward
+        global_step += 1
+
+        if global_step > args.warmup and global_step % args.learn_every == 0:
+            loss = agent.learn_step()
+            if loss is not None:
+                result.losses.append(loss)
+        if global_step % args.target_sync == 0:
+            agent.sync_target()
+    return result, global_step
+
+
+def main() -> None:
+    args = _parse_args()
     Path(args.checkpoint_dir).mkdir(parents=True, exist_ok=True)
     Path(args.log_dir).mkdir(parents=True, exist_ok=True)
     log_path = Path(args.log_dir) / f"train-{int(time.time())}.csv"
@@ -59,44 +105,21 @@ def main() -> None:
 
         t0 = time.time()
         for ep in range(args.episodes):
-            obs = env.reset()
-            done = False
-            ep_steps = 0
-            ep_score = 0.0
-            losses: list[float] = []
-
-            while not done:
-                agent.epsilon = anneal_epsilon(
-                    global_step, args.eps_start, args.eps_end, args.eps_decay,
-                )
-                action = agent.act(obs, eval_mode=False)
-                next_obs, reward, done, info = env.step(action)
-                agent.remember(obs, action, reward, next_obs, done)
-                obs = next_obs
-                ep_steps += 1
-                ep_score += reward
-                global_step += 1
-
-                if global_step > args.warmup and global_step % args.learn_every == 0:
-                    loss = agent.learn_step()
-                    if loss is not None:
-                        losses.append(loss)
-                if global_step % args.target_sync == 0:
-                    agent.sync_target()
-
-            mean_loss = sum(losses) / len(losses) if losses else 0.0
-            writer.writerow([ep, ep_steps, f"{ep_score:.2f}",
-                             f"{agent.epsilon:.3f}", f"{mean_loss:.4f}",
-                             f"{time.time() - t0:.1f}"])
+            result, global_step = _run_episode(env, agent, args, global_step)
+            writer.writerow([
+                ep, result.steps, f"{result.score:.2f}",
+                f"{agent.epsilon:.3f}", f"{result.mean_loss:.4f}",
+                f"{time.time() - t0:.1f}",
+            ])
             f.flush()
-            print(f"ep {ep:4d}  steps {ep_steps:4d}  score {ep_score:7.2f}  "
-                  f"eps {agent.epsilon:.3f}  loss {mean_loss:.4f}")
+            print(f"ep {ep:4d}  steps {result.steps:4d}  score {result.score:7.2f}  "
+                  f"eps {agent.epsilon:.3f}  loss {result.mean_loss:.4f}")
 
-            if ep_score > best_score:
-                best_score = ep_score
-                agent.save(os.path.join(args.checkpoint_dir, "best.pt"))
+            if result.score > best_score:
+                best_score = result.score
+                agent.save(os.path.join(args.checkpoint_dir, CHECKPOINT_BEST))
 
-        agent.save(os.path.join(args.checkpoint_dir, "final.pt"))
+        agent.save(os.path.join(args.checkpoint_dir, CHECKPOINT_FINAL))
         print(f"saved best ({best_score:.2f}) and final checkpoints")
 
     env.close()
