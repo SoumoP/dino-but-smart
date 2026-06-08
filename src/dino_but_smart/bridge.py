@@ -18,8 +18,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
 from .constants import (
-    ACTION_DUCK, ACTION_JUMP, ACTION_NOOP, DINO_H, DINO_X, GROUND_Y, MAX_SPEED,
-    MAX_VY, OBS_DIM, SCREEN_H, SCREEN_W,
+    ACTION_DUCK, ACTION_JUMP, DINO_H, DINO_X, MAX_SPEED, MAX_VY, OBS_DIM,
+    SCREEN_H, SCREEN_W,
 )
 
 
