@@ -12,7 +12,10 @@ import time
 import numpy as np
 
 from .bridge import ChromeDinoBridge
-from .constants import CHROME_SCORE_PER_DISTANCE, OBS_DIM, REWARD_DEATH, REWARD_STEP
+from .constants import (
+    ACTION_DUCK, ACTION_JUMP, CHROME_SCORE_PER_DISTANCE, DUCK_COST, JUMP_COST,
+    OBS_DIM, REWARD_DEATH, REWARD_STEP,
+)
 
 
 class ChromeEnv:
@@ -65,7 +68,12 @@ class ChromeEnv:
                     {"score": int(state["distanceRan"] * CHROME_SCORE_PER_DISTANCE)})
 
         obs = self.bridge.state_to_obs(state)
-        return obs, REWARD_STEP, False, {
+        reward = REWARD_STEP
+        if action == ACTION_JUMP:
+            reward -= JUMP_COST
+        elif action == ACTION_DUCK:
+            reward -= DUCK_COST
+        return obs, reward, False, {
             "score": int(state["distanceRan"] * CHROME_SCORE_PER_DISTANCE),
         }
 

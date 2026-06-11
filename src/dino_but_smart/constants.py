@@ -37,5 +37,9 @@ REWARD_STEP = 0.1
 REWARD_CLEAR = 1.0
 REWARD_DEATH = -10.0
 
+# Small per-action costs so noop is strictly preferred in safe states.
+JUMP_COST = 0.02
+DUCK_COST = 0.02
+
 # Chrome Dino displayed score = distanceRan * this factor
 CHROME_SCORE_PER_DISTANCE = 0.025

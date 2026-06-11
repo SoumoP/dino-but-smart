@@ -136,6 +136,40 @@ def test_observation_components_in_unit_range():
     env.close()
 
 
+def test_jump_costs_more_than_noop_in_safe_state():
+    """No obstacle in view -> JUMP must yield strictly less reward than NOOP,
+    so the policy has a gradient to prefer noop in safe stretches."""
+    env_noop = DinoEnv(render=False, seed=0)
+    env_jump = DinoEnv(render=False, seed=0)
+    env_noop.reset(); env_jump.reset()
+    env_noop.obstacles = []
+    env_jump.obstacles = []
+    _, r_noop, done_noop, _ = env_noop.step(ACTION_NOOP)
+    _, r_jump, done_jump, _ = env_jump.step(ACTION_JUMP)
+    assert not done_noop and not done_jump, "neither env should die without obstacles"
+    assert r_jump < r_noop, (
+        f"expected jump reward < noop reward in safe state, "
+        f"got jump={r_jump}, noop={r_noop}"
+    )
+    env_noop.close(); env_jump.close()
+
+
+def test_duck_costs_more_than_noop_in_safe_state():
+    env_noop = DinoEnv(render=False, seed=0)
+    env_duck = DinoEnv(render=False, seed=0)
+    env_noop.reset(); env_duck.reset()
+    env_noop.obstacles = []
+    env_duck.obstacles = []
+    _, r_noop, done_noop, _ = env_noop.step(ACTION_NOOP)
+    _, r_duck, done_duck, _ = env_duck.step(ACTION_DUCK)
+    assert not done_noop and not done_duck
+    assert r_duck < r_noop, (
+        f"expected duck reward < noop reward in safe state, "
+        f"got duck={r_duck}, noop={r_noop}"
+    )
+    env_noop.close(); env_duck.close()
+
+
 def test_observation_first_components_describe_next_obstacle():
     env = DinoEnv(render=False, seed=0)
     env.reset()

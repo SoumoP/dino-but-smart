@@ -11,9 +11,9 @@ import pygame
 
 from .constants import (
     ACTION_DUCK, ACTION_JUMP, ACTION_NOOP, DINO_DUCK_H, DINO_H, DINO_W, DINO_X,
-    GRAVITY, GROUND_Y, JUMP_V, MAX_SPEED, MAX_VY, N_ACTIONS, OBS_DIM,
-    REWARD_CLEAR, REWARD_DEATH, REWARD_STEP, SCREEN_H, SCREEN_W, SPEED_ACCEL,
-    V0_SPEED,
+    DUCK_COST, GRAVITY, GROUND_Y, JUMP_COST, JUMP_V, MAX_SPEED, MAX_VY,
+    N_ACTIONS, OBS_DIM, REWARD_CLEAR, REWARD_DEATH, REWARD_STEP, SCREEN_H,
+    SCREEN_W, SPEED_ACCEL, V0_SPEED,
 )
 
 # Obstacle catalogue. y_top is the y-coordinate of the obstacle's top.
@@ -100,6 +100,10 @@ class DinoEnv:
             reward = REWARD_DEATH
         else:
             reward = REWARD_STEP + bonus
+            if action == ACTION_JUMP:
+                reward -= JUMP_COST
+            elif action == ACTION_DUCK:
+                reward -= DUCK_COST
 
         obs = self._build_observation()
         if self.render_mode:
